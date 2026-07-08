@@ -18,4 +18,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/", include("apps.accounts.urls")),
+    path("api/", include("apps.morse.urls")),
 ]

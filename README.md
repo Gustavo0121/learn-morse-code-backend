@@ -69,6 +69,29 @@ curl -b cookies.txt -c cookies.txt -X POST http://localhost:8000/api/auth/refres
   -H "X-CSRF-Protection: 1"
 ```
 
+### Configurações de Morse (Fase 2)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/users/morse-settings` | Configurações de treino do usuário autenticado |
+| `PUT` | `/api/users/morse-settings` | Atualiza as configurações |
+
+Corpo/resposta:
+
+```json
+{
+  "speed_wpm": 20,
+  "frequency": 700,
+  "volume": 0.8,
+  "wave_type": "sine",
+  "input_key": "Space"
+}
+```
+
+Validações no servidor: `speed_wpm` ∈ {5, 10, 15, 20, 30, 40, 60}; `frequency` entre 200 e 2000 Hz; `volume` entre 0.0 e 1.0; `wave_type` ∈ {sine, square, triangle, sawtooth}; `input_key` restrito à tabela `AllowedKey` (dado configurável — teclas são adicionadas/desativadas pelo Django admin, sem deploy; seed inicial: Space, Enter, KeyA, KeyS, KeyD).
+
+As configurações padrão são criadas automaticamente no cadastro do usuário.
+
 ## Qualidade e testes
 
 ```sh
@@ -86,7 +109,7 @@ O CI (GitHub Actions) executa lint → type check → testes a cada push/PR.
 config/          # settings, urls, wsgi/asgi
 apps/
 ├── accounts/    # usuários e autenticação (Fase 1 ✅)
-├── morse/       # configurações de Morse e caracteres (Fases 2–3)
+├── morse/       # configurações de Morse (Fase 2 ✅) e caracteres (Fase 3)
 ├── lessons/     # lições (Fase 3)
 ├── practice/    # registro de treino (Fase 4)
 └── statistics/  # estatísticas agregadas (Fase 5)
