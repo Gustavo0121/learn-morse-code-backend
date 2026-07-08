@@ -6,7 +6,14 @@ não exige deploy.
 
 from django.contrib import admin
 
-from .models import AllowedKey, UserMorseSettings
+from .models import AllowedKey, MorseCharacter, UserMorseSettings
+
+
+@admin.register(MorseCharacter)
+class MorseCharacterAdmin(admin.ModelAdmin):
+    list_display = ("character", "code", "type")
+    list_filter = ("type",)
+    search_fields = ("character",)
 
 
 @admin.register(AllowedKey)

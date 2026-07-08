@@ -2,7 +2,14 @@
 
 from rest_framework import serializers
 
-from .models import AllowedKey, UserMorseSettings
+from .models import AllowedKey, MorseCharacter, UserMorseSettings
+
+
+class MorseCharacterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MorseCharacter
+        fields = ("id", "character", "code", "type")
+        read_only_fields = fields
 
 
 class UserMorseSettingsSerializer(serializers.ModelSerializer):
