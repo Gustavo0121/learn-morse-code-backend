@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     # Terceiros
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     # Apps do projeto
     "apps.accounts",
     "apps.morse",
@@ -104,6 +105,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+AUTH_USER_MODEL = "accounts.User"
+
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -111,9 +114,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_RATES": {
-        # Rates específicos (ex.: rotas de auth) são definidos por view na Fase 1.
         "anon": "60/min",
         "user": "120/min",
+        # Rotas de autenticação (register/login/refresh/logout) — proteção
+        # contra brute force, aplicada por IP via ScopedRateThrottle.
+        "auth": "10/min",
     },
 }
 
@@ -125,6 +130,11 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+# Cookie httpOnly que transporta o refresh token (decisão conjunta com o
+# frontend): definido no login/refresh e enviado apenas às rotas sob /api/auth.
+REFRESH_TOKEN_COOKIE_NAME = "refresh_token"  # noqa: S105 — nome do cookie, não um segredo
+REFRESH_TOKEN_COOKIE_PATH = "/api/auth"  # noqa: S105 — path do cookie, não um segredo
 
 # Segurança — endurecido apenas fora de DEBUG (produção exige HTTPS)
 if not DEBUG:

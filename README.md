@@ -39,6 +39,36 @@ API REST (Django + Django REST Framework) da plataforma de aprendizado e prátic
 
 Alternativa: subir tudo via Docker com `docker compose up --build`.
 
+## API
+
+### Autenticação (Fase 1)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/auth/register` | Cadastro (`username`, `email`, `password`) |
+| `POST` | `/api/auth/login` | Retorna o access token no corpo e grava o refresh token em cookie |
+| `POST` | `/api/auth/refresh` | Renova o access token a partir do cookie de refresh |
+| `POST` | `/api/auth/logout` | Blacklista o refresh token e expira o cookie |
+| `GET/PUT` | `/api/users/profile` | Perfil do usuário autenticado (requer `Authorization: Bearer <access>`) |
+
+Como o fluxo de tokens funciona:
+
+- O **access token** (validade de 15 min) é retornado apenas no corpo do login/refresh; o frontend o mantém em memória e o envia via header `Authorization: Bearer`.
+- O **refresh token** (validade de 7 dias) nunca aparece no corpo: é entregue no cookie `refresh_token` (`HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Secure` fora de DEBUG) e é rotacionado a cada refresh, com blacklist do token anterior.
+- **Proteção CSRF**: `refresh` e `logout` dependem do cookie e por isso exigem o header customizado `X-CSRF-Protection: 1`; sem ele a resposta é 403.
+- **Rate limiting**: as rotas de autenticação são limitadas a 10 requisições/min por IP (contadores no Redis).
+
+Exemplo:
+
+```sh
+curl -c cookies.txt -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "gu", "password": "sua-senha"}'
+
+curl -b cookies.txt -c cookies.txt -X POST http://localhost:8000/api/auth/refresh \
+  -H "X-CSRF-Protection: 1"
+```
+
 ## Qualidade e testes
 
 ```sh
@@ -55,7 +85,7 @@ O CI (GitHub Actions) executa lint → type check → testes a cada push/PR.
 ```
 config/          # settings, urls, wsgi/asgi
 apps/
-├── accounts/    # usuários e autenticação (Fase 1)
+├── accounts/    # usuários e autenticação (Fase 1 ✅)
 ├── morse/       # configurações de Morse e caracteres (Fases 2–3)
 ├── lessons/     # lições (Fase 3)
 ├── practice/    # registro de treino (Fase 4)
