@@ -31,6 +31,28 @@ class AllowedKey(models.Model):
         return self.code
 
 
+class MorseCharacter(models.Model):
+    """Caractere do alfabeto Morse (letra, número ou pontuação).
+
+    Escrita restrita ao Django admin; a API expõe somente leitura.
+    """
+
+    class CharacterType(models.TextChoices):
+        LETTER = "letter"
+        NUMBER = "number"
+        PUNCTUATION = "punctuation"
+
+    character = models.CharField(max_length=8, unique=True)  # ex.: "A", "5", "?"
+    code = models.CharField(max_length=16)  # ex.: ".-", "-.-.--"
+    type = models.CharField(max_length=16, choices=CharacterType.choices)
+
+    class Meta:
+        ordering = ("type", "character")
+
+    def __str__(self) -> str:
+        return f"{self.character} -> {self.code}"
+
+
 class UserMorseSettings(models.Model):
     """Configurações de treino do usuário (relação 1:1, criadas no cadastro)."""
 

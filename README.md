@@ -92,6 +92,16 @@ Validações no servidor: `speed_wpm` ∈ {5, 10, 15, 20, 30, 40, 60}; `frequenc
 
 As configurações padrão são criadas automaticamente no cadastro do usuário.
 
+### Lições e caracteres Morse (Fase 3)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/lessons` | Lições ordenadas pela posição na trilha (`order`) |
+| `GET` | `/api/lessons/{id}` | Detalhe de uma lição |
+| `GET` | `/api/morse-characters` | Alfabeto Morse completo (ITU): 26 letras, 10 números, 18 pontuações |
+
+Conteúdo somente leitura para o aluno — a escrita é restrita ao Django admin. A base é populada por data migrations: 4 lições iniciais (Nível 1 — letras básicas, 2 — números, 3 — palavras, 4 — frases) e os 54 caracteres do padrão ITU-R M.1677-1.
+
 ## Qualidade e testes
 
 ```sh
@@ -109,8 +119,8 @@ O CI (GitHub Actions) executa lint → type check → testes a cada push/PR.
 config/          # settings, urls, wsgi/asgi
 apps/
 ├── accounts/    # usuários e autenticação (Fase 1 ✅)
-├── morse/       # configurações de Morse (Fase 2 ✅) e caracteres (Fase 3)
-├── lessons/     # lições (Fase 3)
+├── morse/       # configurações de Morse e caracteres (Fases 2–3 ✅)
+├── lessons/     # lições (Fase 3 ✅)
 ├── practice/    # registro de treino (Fase 4)
 └── statistics/  # estatísticas agregadas (Fase 5)
 ```
