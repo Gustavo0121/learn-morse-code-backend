@@ -20,6 +20,7 @@ dev = [
     "ruff>=0.9",
     "mypy>=1.14",
     "django-stubs[compatible-mypy]>=5.1",
+    "djangorestframework-stubs[compatible-mypy]>=3.15",
 ]
 
 [tool.ruff]
@@ -39,8 +40,9 @@ select = [
     "S",   # flake8-bandit (security)
 ]
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S101"]  # assert é esperado em testes
-"**/test_*.py" = ["S101"]
+# S101: assert é esperado em testes; S105/S106: senhas hardcoded de teste
+"**/tests/**" = ["S101", "S105", "S106"]
+"**/test_*.py" = ["S101", "S105", "S106"]
 
 [tool.mypy]
 python_version = "3.12"

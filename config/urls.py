@@ -1,12 +1,12 @@
 """Roteamento raiz da API.
 
-As rotas de cada app (`/api/auth/`, `/api/users/`, `/api/lessons/`,
-`/api/practice/` etc.) serão registradas aqui nas fases seguintes.
+As rotas dos demais apps (`/api/lessons/`, `/api/practice/` etc.) serão
+registradas aqui nas fases seguintes.
 """
 
 from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
-from django.urls import path
+from django.urls import include, path
 
 
 def health(_request: HttpRequest) -> JsonResponse:
@@ -17,4 +17,5 @@ def health(_request: HttpRequest) -> JsonResponse:
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
+    path("api/", include("apps.accounts.urls")),
 ]
