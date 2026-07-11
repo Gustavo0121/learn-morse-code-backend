@@ -21,4 +21,5 @@ urlpatterns = [
     path("api/", include("apps.morse.urls")),
     path("api/", include("apps.lessons.urls")),
     path("api/", include("apps.practice.urls")),
+    path("api/", include("apps.statistics.urls")),
 ]
