@@ -129,6 +129,29 @@ Como o registro funciona:
 - `correct` é sempre calculado no backend comparando `expected_answer` com `user_answer` — nunca aceito do cliente.
 - `response_time` (ms) deve estar entre 1 e 300000.
 
+### Estatísticas (Fase 5)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/users/statistics` | Desempenho agregado do usuário autenticado |
+
+Resposta:
+
+```json
+{
+  "characters_seen": 4,
+  "characters_correct": 3,
+  "accuracy": 0.75,
+  "average_speed": 60.0,
+  "training_time": 4000,
+  "updated_at": "2026-07-11T18:00:00Z"
+}
+```
+
+- O agregado é recalculado automaticamente a cada tentativa registrada em `/api/practice/history` (signal → `statistics/services.py`); síncrono no MVP, candidato a Redis/Celery no futuro.
+- `accuracy` é a fração de acertos (0.0–1.0); `training_time` é a soma dos tempos de resposta em ms; `average_speed` é caracteres por minuto derivada do tempo total de resposta.
+- Somente leitura: qualquer escrita do cliente (`POST`/`PUT`/`PATCH`) responde 405. Usuários sem histórico recebem o agregado zerado.
+
 ## Qualidade e testes
 
 ```sh
@@ -149,7 +172,7 @@ apps/
 ├── morse/       # configurações de Morse e caracteres (Fases 2–3 ✅)
 ├── lessons/     # lições (Fase 3 ✅)
 ├── practice/    # registro de treino (Fase 4 ✅)
-└── statistics/  # estatísticas agregadas (Fase 5)
+└── statistics/  # estatísticas agregadas (Fase 5 ✅)
 ```
 
 Requisitos e plano de desenvolvimento: ver `CLAUDE.md`.

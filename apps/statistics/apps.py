@@ -4,3 +4,6 @@ from django.apps import AppConfig
 class StatisticsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.statistics"
+
+    def ready(self) -> None:
+        from . import signals  # noqa: F401 — registra os receivers
