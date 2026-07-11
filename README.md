@@ -102,6 +102,33 @@ As configurações padrão são criadas automaticamente no cadastro do usuário.
 
 Conteúdo somente leitura para o aluno — a escrita é restrita ao Django admin. A base é populada por data migrations: 4 lições iniciais (Nível 1 — letras básicas, 2 — números, 3 — palavras, 4 — frases) e os 54 caracteres do padrão ITU-R M.1677-1.
 
+### Prática (Fase 4)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/practice/history` | Registra uma tentativa de exercício |
+| `GET` | `/api/practice/history` | Histórico do usuário autenticado (mais recente primeiro) |
+
+Corpo do `POST` (exercício de captura por tecla):
+
+```json
+{
+  "exercise_type": "key_capture",
+  "input_method": "Space",
+  "question": "!",
+  "expected_answer": "-.-.--",
+  "press_durations": [200, 50, 200, 50, 200, 200],
+  "response_time": 850
+}
+```
+
+Como o registro funciona:
+
+- `exercise_type` ∈ {`key_capture`, `multiple_choice`, `listening`}; `input_method` é obrigatório apenas em `key_capture` (validado contra a tabela `AllowedKey`) e proibido nos demais.
+- Para `key_capture`, o cliente pode enviar `press_durations` (duração de cada pressionamento, em ms): o backend refaz a classificação ponto/traço e deriva `user_answer` no servidor. Cada duração é validada contra um limite dinâmico calculado do `speed_wpm` do usuário (fórmula PARIS: ponto = 1200/WPM ms) — payloads como `999999999` são rejeitados. Sem `press_durations`, `user_answer` é obrigatório no corpo.
+- `correct` é sempre calculado no backend comparando `expected_answer` com `user_answer` — nunca aceito do cliente.
+- `response_time` (ms) deve estar entre 1 e 300000.
+
 ## Qualidade e testes
 
 ```sh
@@ -121,7 +148,7 @@ apps/
 ├── accounts/    # usuários e autenticação (Fase 1 ✅)
 ├── morse/       # configurações de Morse e caracteres (Fases 2–3 ✅)
 ├── lessons/     # lições (Fase 3 ✅)
-├── practice/    # registro de treino (Fase 4)
+├── practice/    # registro de treino (Fase 4 ✅)
 └── statistics/  # estatísticas agregadas (Fase 5)
 ```
 
