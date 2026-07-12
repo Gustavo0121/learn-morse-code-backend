@@ -6,8 +6,12 @@ from rest_framework import generics
 
 from apps.accounts.models import User
 
-from .models import MorseCharacter, UserMorseSettings
-from .serializers import MorseCharacterSerializer, UserMorseSettingsSerializer
+from .models import AllowedKey, MorseCharacter, UserMorseSettings
+from .serializers import (
+    AllowedKeySerializer,
+    MorseCharacterSerializer,
+    UserMorseSettingsSerializer,
+)
 from .services import ensure_default_settings
 
 
@@ -19,6 +23,17 @@ class UserMorseSettingsView(generics.RetrieveUpdateAPIView):
     def get_object(self) -> UserMorseSettings:
         # Fallback para usuários criados antes do signal existir.
         return ensure_default_settings(cast(User, self.request.user))
+
+
+class AllowedKeyListView(generics.ListAPIView):
+    """GET /api/morse-settings/allowed-keys — whitelist de teclas de captura.
+
+    Fonte única para o frontend construir o seletor de ``input_key``,
+    garantindo que cliente e servidor validem contra a mesma lista.
+    """
+
+    queryset = AllowedKey.objects.filter(is_active=True)
+    serializer_class = AllowedKeySerializer
 
 
 class MorseCharacterListView(generics.ListAPIView):

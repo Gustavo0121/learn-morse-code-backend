@@ -157,3 +157,33 @@ def test_new_allowed_key_works_without_code_change(api: APIClient) -> None:
     response = put_settings(api, input_key="KeyJ")
 
     assert response.status_code == 200
+
+
+# ------------------------------------------------------- teclas permitidas
+
+
+def test_allowed_keys_lists_active_keys_in_order(api: APIClient) -> None:
+    response = api.get(reverse("morse-settings-allowed-keys"))
+
+    assert response.status_code == 200
+    assert [item["code"] for item in response.json()] == [
+        "Enter",
+        "KeyA",
+        "KeyD",
+        "KeyS",
+        "Space",
+    ]
+
+
+def test_allowed_keys_excludes_deactivated(api: APIClient) -> None:
+    AllowedKey.objects.filter(code="Enter").update(is_active=False)
+
+    response = api.get(reverse("morse-settings-allowed-keys"))
+
+    assert "Enter" not in [item["code"] for item in response.json()]
+
+
+def test_allowed_keys_requires_authentication() -> None:
+    response = APIClient().get(reverse("morse-settings-allowed-keys"))
+
+    assert response.status_code == 401

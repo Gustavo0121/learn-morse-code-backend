@@ -5,6 +5,15 @@ from rest_framework import serializers
 from .models import AllowedKey, MorseCharacter, UserMorseSettings
 
 
+class AllowedKeySerializer(serializers.ModelSerializer):
+    """Tecla válida para ``input_key`` — consumida pelo seletor do frontend."""
+
+    class Meta:
+        model = AllowedKey
+        fields = ("code",)
+        read_only_fields = fields
+
+
 class MorseCharacterSerializer(serializers.ModelSerializer):
     class Meta:
         model = MorseCharacter
