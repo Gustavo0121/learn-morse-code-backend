@@ -1,0 +1,69 @@
+[project]
+name = "learn-morse-code-backend"
+version = "0.1.0"
+description = "API REST para a plataforma de aprendizado e prática de Código Morse."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.1,<6.0",
+    "djangorestframework>=3.15",
+    "djangorestframework-simplejwt>=5.4",
+    "psycopg[binary]>=3.2",
+    "django-environ>=0.12",
+    "redis>=5.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "django-stubs[compatible-mypy]>=5.1",
+    "djangorestframework-stubs[compatible-mypy]>=3.15",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "DJ",  # flake8-django
+    "S",   # flake8-bandit (security)
+]
+[tool.ruff.lint.per-file-ignores]
+# S101: assert é esperado em testes; S105/S106: senhas hardcoded de teste
+"**/tests/**" = ["S101", "S105", "S106"]
+"**/test_*.py" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+strict = false
+check_untyped_defs = true
+warn_unused_ignores = true
+exclude = ["migrations"]
+
+[[tool.mypy.overrides]]
+module = "environ.*"  # django-environ não publica stubs nem marker py.typed
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["apps", "config"]
+omit = ["**/migrations/*"]
