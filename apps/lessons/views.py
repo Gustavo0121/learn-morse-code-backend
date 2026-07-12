@@ -9,12 +9,12 @@ from .serializers import LessonSerializer
 class LessonListView(generics.ListAPIView):
     """GET /api/lessons — ordenadas pela posição na trilha (``order``)."""
 
-    queryset = Lesson.objects.all()
+    queryset = Lesson.objects.prefetch_related("characters")
     serializer_class = LessonSerializer
 
 
 class LessonDetailView(generics.RetrieveAPIView):
     """GET /api/lessons/{id}."""
 
-    queryset = Lesson.objects.all()
+    queryset = Lesson.objects.prefetch_related("characters")
     serializer_class = LessonSerializer

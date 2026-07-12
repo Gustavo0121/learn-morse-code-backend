@@ -14,6 +14,12 @@ class Lesson(models.Model):
     description = models.TextField(blank=True)
     difficulty = models.PositiveSmallIntegerField()
     order = models.PositiveIntegerField(unique=True)
+    # Conteúdo da lição: caracteres usados no treino guiado do frontend.
+    characters = models.ManyToManyField(
+        "morse.MorseCharacter",
+        blank=True,
+        related_name="lessons",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
