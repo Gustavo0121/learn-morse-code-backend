@@ -62,6 +62,32 @@ def test_detail_returns_lesson(api: APIClient) -> None:
     assert body["difficulty"] == 2
 
 
+def test_lessons_embed_their_characters(api: APIClient) -> None:
+    lesson = Lesson.objects.get(order=2)
+
+    body = api.get(reverse("lessons-detail", args=[lesson.id])).json()
+
+    characters = body["characters"]
+    assert len(characters) == 10
+    assert {item["type"] for item in characters} == {"number"}
+    assert {"character", "code", "type", "id"} == set(characters[0].keys())
+
+
+def test_seeded_lesson_one_has_basic_letters(api: APIClient) -> None:
+    lesson = Lesson.objects.get(order=1)
+
+    body = api.get(reverse("lessons-detail", args=[lesson.id])).json()
+
+    assert sorted(item["character"] for item in body["characters"]) == [
+        "A",
+        "E",
+        "I",
+        "M",
+        "N",
+        "T",
+    ]
+
+
 def test_detail_unknown_id_returns_404(api: APIClient) -> None:
     response = api.get(reverse("lessons-detail", args=[99999]))
 

@@ -10,3 +10,4 @@ class LessonAdmin(admin.ModelAdmin):
     list_display = ("order", "title", "difficulty", "created_at")
     ordering = ("order",)
     search_fields = ("title",)
+    filter_horizontal = ("characters",)
