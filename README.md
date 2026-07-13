@@ -41,6 +41,8 @@ Alternativa: subir tudo via Docker com `docker compose up --build`.
 
 ## API
 
+Documentação interativa (drf-spectacular): **`/api/docs`** (Swagger UI) e **`/api/schema`** (OpenAPI 3). Ambas são públicas; os endpoints em si continuam exigindo JWT.
+
 ### Autenticação (Fase 1)
 
 | Método | Rota | Descrição |
@@ -152,16 +154,45 @@ Resposta:
 - `accuracy` é a fração de acertos (0.0–1.0); `training_time` é a soma dos tempos de resposta em ms; `average_speed` é caracteres por minuto derivada do tempo total de resposta.
 - Somente leitura: qualquer escrita do cliente (`POST`/`PUT`/`PATCH`) responde 405. Usuários sem histórico recebem o agregado zerado.
 
+## Segurança (Fase 6)
+
+- **Rate limiting global**: 60 req/min por IP para anônimos e 120 req/min por usuário autenticado, além dos 10 req/min por IP nas rotas de autenticação.
+- **CORS**: origens explícitas via `CORS_ALLOWED_ORIGINS` (nunca `*`), com credenciais habilitadas para o cookie de refresh e o header `X-CSRF-Protection` liberado no preflight.
+- **Headers**: `Content-Security-Policy` restritiva em todas as respostas, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
+- **Produção (`DEBUG=False`)**: redirect HTTPS obrigatório, HSTS de 1 ano com subdomínios, cookies `Secure`, API somente JSON (Browsable API desligada). Atrás de proxy TLS, ligar `USE_X_FORWARDED_PROTO`.
+- **Dependências**: `pip-audit` roda no CI (job `security`) contra o lockfile completo; o lint inclui as regras de segurança do bandit (`S`) via ruff.
+
+Auditoria manual de dependências:
+
+```sh
+uv export --no-emit-project --format requirements-txt -o requirements-audit.txt
+uv run pip-audit --disable-pip -r requirements-audit.txt
+```
+
 ## Qualidade e testes
 
 ```sh
-uv run ruff check .          # lint
+uv run ruff check .          # lint (inclui regras de segurança do bandit)
 uv run ruff format .         # formatação
 uv run mypy .                # type checking
 uv run pytest                # testes
+uv run pytest --cov         # testes com cobertura (meta: ≥ 80%)
 ```
 
-O CI (GitHub Actions) executa lint → type check → testes a cada push/PR.
+## CI/CD e deploy
+
+Pipeline (GitHub Actions), a cada push/PR:
+
+```
+Lint → Testes (cobertura ≥ 80%) → Security Scan (pip-audit) → Docker Build → Deploy
+```
+
+- **Docker Build**: valida o build em PRs; em push nas branches principais também publica a imagem em `ghcr.io/gustavo0121/learn-morse-code-backend` (tags: SHA, branch e `latest` na branch default).
+- **Deploy**: em push na `main`, dispara o deploy hook do Render (secret `RENDER_DEPLOY_HOOK_URL`; sem o secret o job apenas avisa — o auto-deploy do Render assume). Para condicionar o deploy ao CI verde, desligue o auto-deploy no painel do Render e cadastre o secret.
+- **Migrations** rodam automaticamente no start do container (`migrate --noinput` antes do Gunicorn), incluindo os seeds de lições/caracteres.
+- **Rollback**: guia completo em `DEPLOY.md` (seção 5) — rollback de build pelo dashboard do Render, migração reversa via CMD temporário e point-in-time restore do Neon.
+
+Guia completo de deploy (Render + Neon + Upstash, custo zero): **`DEPLOY.md`**.
 
 ## Estrutura
 
