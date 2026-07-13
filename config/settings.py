@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # assets do Swagger UI servidos localmente (CSP-friendly)
     # Apps do projeto
     "apps.accounts",
     "apps.morse",
@@ -140,6 +142,21 @@ REST_FRAMEWORK = {
         # contra brute force, aplicada por IP via ScopedRateThrottle.
         "auth": "10/min",
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# Documentação OpenAPI (drf-spectacular) — /api/schema e /api/docs
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Learn Morse Code API",
+    "DESCRIPTION": "API REST da plataforma de aprendizado e prática de Código Morse.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Documentação pública (os endpoints em si continuam exigindo JWT).
+    "SERVE_PERMISSIONS": ("rest_framework.permissions.AllowAny",),
+    # Assets do Swagger UI vindos do sidecar (self-hosted) em vez de CDN,
+    # mantendo a CSP sem origens externas.
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
 }
 
 # JWT (SimpleJWT) — access token curto; refresh token entregue via cookie
@@ -177,6 +194,13 @@ CONTENT_SECURITY_POLICY = (
     "frame-ancestors 'none'; "
     "base-uri 'self'; "
     "form-action 'self'"
+)
+
+# O Swagger UI (/api/docs) inicializa via <script> inline — a rota de docs
+# recebe uma política própria, idêntica à padrão exceto pelo script-src.
+CONTENT_SECURITY_POLICY_DOCS_PATH = "/api/docs"
+CONTENT_SECURITY_POLICY_DOCS = CONTENT_SECURITY_POLICY.replace(
+    "script-src 'self'", "script-src 'self' 'unsafe-inline'"
 )
 
 # Segurança — endurecido apenas fora de DEBUG (produção exige HTTPS)

@@ -19,5 +19,8 @@ class ContentSecurityPolicyMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponseBase:
         response = self.get_response(request)
-        response.headers.setdefault("Content-Security-Policy", settings.CONTENT_SECURITY_POLICY)
+        policy = settings.CONTENT_SECURITY_POLICY
+        if request.path.startswith(settings.CONTENT_SECURITY_POLICY_DOCS_PATH):
+            policy = settings.CONTENT_SECURITY_POLICY_DOCS
+        response.headers.setdefault("Content-Security-Policy", policy)
         return response

@@ -1,12 +1,9 @@
-"""Roteamento raiz da API.
-
-As rotas dos demais apps (`/api/lessons/`, `/api/practice/` etc.) serão
-registradas aqui nas fases seguintes.
-"""
+"""Roteamento raiz da API."""
 
 from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 
 def health(_request: HttpRequest) -> JsonResponse:
@@ -17,6 +14,8 @@ def health(_request: HttpRequest) -> JsonResponse:
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.morse.urls")),
     path("api/", include("apps.lessons.urls")),
