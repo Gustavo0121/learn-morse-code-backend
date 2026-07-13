@@ -53,6 +53,8 @@ MIDDLEWARE = [
     # gerar resposta (para incluir os headers CORS também em erros).
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Serve os estáticos (Django admin) direto do Gunicorn em produção.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "config.middleware.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -110,6 +112,10 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Em dev/testes o WhiteNoise resolve os arquivos por requisição, sem exigir
+# `collectstatic` prévio (evita o warning "No directory at: staticfiles").
+WHITENOISE_AUTOREFRESH = DEBUG
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -188,3 +194,12 @@ if not DEBUG:
     # A API é somente JSON em produção — desliga a Browsable API (HTML),
     # reduzindo superfície de XSS/escape de saída.
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ("rest_framework.renderers.JSONRenderer",)
+    # Estáticos com hash no nome + compressão, servidos pelo WhiteNoise.
+    # Só fora de DEBUG: o manifest exige `collectstatic` prévio (feito no
+    # build da imagem), o que não existe no ambiente de dev/testes.
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
