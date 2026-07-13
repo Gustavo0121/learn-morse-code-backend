@@ -16,6 +16,7 @@ from collections.abc import Sequence
 from typing import Any, cast
 
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -91,6 +92,7 @@ class LogoutView(AuthThrottleMixin, APIView):
     authentication_classes = ()
     permission_classes = (RequireCSRFHeader,)
 
+    @extend_schema(request=None, responses={204: None})
     def post(self, request: Request) -> Response:
         token = request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME)
         if token:

@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # assets do Swagger UI servidos localmente (CSP-friendly)
     # Apps do projeto
     "apps.accounts",
     "apps.morse",
@@ -53,6 +55,8 @@ MIDDLEWARE = [
     # gerar resposta (para incluir os headers CORS também em erros).
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Serve os estáticos (Django admin) direto do Gunicorn em produção.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "config.middleware.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -111,6 +115,10 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Em dev/testes o WhiteNoise resolve os arquivos por requisição, sem exigir
+# `collectstatic` prévio (evita o warning "No directory at: staticfiles").
+WHITENOISE_AUTOREFRESH = DEBUG
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
@@ -134,6 +142,21 @@ REST_FRAMEWORK = {
         # contra brute force, aplicada por IP via ScopedRateThrottle.
         "auth": "10/min",
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# Documentação OpenAPI (drf-spectacular) — /api/schema e /api/docs
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Learn Morse Code API",
+    "DESCRIPTION": "API REST da plataforma de aprendizado e prática de Código Morse.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Documentação pública (os endpoints em si continuam exigindo JWT).
+    "SERVE_PERMISSIONS": ("rest_framework.permissions.AllowAny",),
+    # Assets do Swagger UI vindos do sidecar (self-hosted) em vez de CDN,
+    # mantendo a CSP sem origens externas.
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
 }
 
 # JWT (SimpleJWT) — access token curto; refresh token entregue via cookie
@@ -173,6 +196,13 @@ CONTENT_SECURITY_POLICY = (
     "form-action 'self'"
 )
 
+# O Swagger UI (/api/docs) inicializa via <script> inline — a rota de docs
+# recebe uma política própria, idêntica à padrão exceto pelo script-src.
+CONTENT_SECURITY_POLICY_DOCS_PATH = "/api/docs"
+CONTENT_SECURITY_POLICY_DOCS = CONTENT_SECURITY_POLICY.replace(
+    "script-src 'self'", "script-src 'self' 'unsafe-inline'"
+)
+
 # Segurança — endurecido apenas fora de DEBUG (produção exige HTTPS)
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
@@ -188,3 +218,12 @@ if not DEBUG:
     # A API é somente JSON em produção — desliga a Browsable API (HTML),
     # reduzindo superfície de XSS/escape de saída.
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ("rest_framework.renderers.JSONRenderer",)
+    # Estáticos com hash no nome + compressão, servidos pelo WhiteNoise.
+    # Só fora de DEBUG: o manifest exige `collectstatic` prévio (feito no
+    # build da imagem), o que não existe no ambiente de dev/testes.
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
