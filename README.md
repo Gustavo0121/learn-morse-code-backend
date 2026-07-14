@@ -1,209 +1,86 @@
-# Learn Morse Code — Backend
+<div align="center">
 
-API REST (Django + Django REST Framework) da plataforma de aprendizado e prática de Código Morse.
+# Learn Morse Code — API
 
-## Stack
+Backend Django do Learn Morse Code — API REST que sustenta a plataforma de aprendizado e prática de código Morse.
 
-- Python 3.12+ · Django · Django REST Framework · SimpleJWT
-- PostgreSQL · Redis
-- [uv](https://docs.astral.sh/uv/) (dependências) · Docker · GitHub Actions
+<br>
 
-## Setup local
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![Django REST Framework](https://img.shields.io/badge/Django_REST_Framework-A30000?style=for-the-badge)](https://www.django-rest-framework.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-FF4438?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![uv](https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
+[![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=for-the-badge&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
+[![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://docs.pytest.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
+[![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com/)
 
-1. Copie as variáveis de ambiente e ajuste (gere uma `SECRET_KEY` real):
+</div>
 
-   ```sh
-   cp .env.example .env
-   ```
+## Sobre
 
-2. Suba PostgreSQL e Redis:
+API REST em Django + Django REST Framework que fornece autenticação, conteúdo educacional, registro de treinos e estatísticas para o [frontend Angular](https://github.com/Gustavo0121/learn-morse-code-frontend). A geração de áudio Morse acontece inteiramente no navegador — o backend cuida dos dados e das regras.
 
-   ```sh
-   docker compose up -d db redis
-   ```
+## Funcionalidades
 
-3. Instale as dependências e rode as migrações:
+- **Autenticação JWT segura**: access token de vida curta no corpo; refresh token rotacionado em cookie `httpOnly`/`SameSite=Strict`, com blacklist e proteção CSRF.
+- **Configurações de treino por usuário**: velocidade (WPM), frequência, volume, tipo de onda e tecla de captura — validadas no servidor, com whitelist de teclas gerenciável pelo admin.
+- **Conteúdo educacional**: trilha de lições e o alfabeto Morse completo (padrão ITU-R M.1677-1), populados por data migrations.
+- **Registro de prática**: valida e classifica os pressionamentos de tecla no servidor (fórmula PARIS derivada do WPM do usuário) e calcula acertos — o cliente nunca decide o que está `correct`.
+- **Estatísticas agregadas**: precisão, velocidade média e tempo de treino recalculados a cada tentativa.
+- **Hardening**: rate limiting por IP/usuário (Redis), CORS explícito, CSP e headers de segurança, `pip-audit` no CI.
+- **Documentação interativa**: Swagger UI em `/api/docs` e schema OpenAPI 3 em `/api/schema`.
 
-   ```sh
-   uv sync
-   uv run python manage.py migrate
-   ```
-
-4. Inicie o servidor:
-
-   ```sh
-   uv run python manage.py runserver
-   ```
-
-   Verificação rápida: `GET http://localhost:8000/api/health/` → `{"status": "ok"}`.
-
-Alternativa: subir tudo via Docker com `docker compose up --build`.
-
-## API
-
-Documentação interativa (drf-spectacular): **`/api/docs`** (Swagger UI) e **`/api/schema`** (OpenAPI 3). Ambas são públicas; os endpoints em si continuam exigindo JWT.
-
-### Autenticação (Fase 1)
-
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/api/auth/register` | Cadastro (`username`, `email`, `password`) |
-| `POST` | `/api/auth/login` | Retorna o access token no corpo e grava o refresh token em cookie |
-| `POST` | `/api/auth/refresh` | Renova o access token a partir do cookie de refresh |
-| `POST` | `/api/auth/logout` | Blacklista o refresh token e expira o cookie |
-| `GET/PUT` | `/api/users/profile` | Perfil do usuário autenticado (requer `Authorization: Bearer <access>`) |
-
-Como o fluxo de tokens funciona:
-
-- O **access token** (validade de 15 min) é retornado apenas no corpo do login/refresh; o frontend o mantém em memória e o envia via header `Authorization: Bearer`.
-- O **refresh token** (validade de 7 dias) nunca aparece no corpo: é entregue no cookie `refresh_token` (`HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Secure` fora de DEBUG) e é rotacionado a cada refresh, com blacklist do token anterior.
-- **Proteção CSRF**: `refresh` e `logout` dependem do cookie e por isso exigem o header customizado `X-CSRF-Protection: 1`; sem ele a resposta é 403.
-- **Rate limiting**: as rotas de autenticação são limitadas a 10 requisições/min por IP (contadores no Redis).
-
-Exemplo:
+## Rodando localmente
 
 ```sh
-curl -c cookies.txt -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "gu", "password": "sua-senha"}'
-
-curl -b cookies.txt -c cookies.txt -X POST http://localhost:8000/api/auth/refresh \
-  -H "X-CSRF-Protection: 1"
+cp .env.example .env             # ajuste (gere uma SECRET_KEY real)
+docker compose up -d db redis    # PostgreSQL e Redis
+uv sync                          # dependências
+uv run python manage.py migrate  # migrações + seeds (lições, caracteres)
+uv run python manage.py runserver
 ```
 
-### Configurações de Morse (Fase 2)
+Verificação rápida: `GET http://localhost:8000/api/health/` → `{"status": "ok"}`. Alternativa: subir tudo via Docker com `docker compose up --build`.
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/api/users/morse-settings` | Configurações de treino do usuário autenticado |
-| `PUT` | `/api/users/morse-settings` | Atualiza as configurações |
+## Comandos
 
-Corpo/resposta:
+| Comando                  | Descrição                                       |
+| ------------------------ | ----------------------------------------------- |
+| `uv run pytest`          | Testes                                          |
+| `uv run pytest --cov`    | Testes com cobertura (meta: ≥ 80%, gate no CI)  |
+| `uv run ruff check .`    | Lint (inclui regras de segurança do bandit)     |
+| `uv run ruff format .`   | Formatação                                      |
+| `uv run mypy .`          | Type checking                                   |
 
-```json
-{
-  "speed_wpm": 20,
-  "frequency": 700,
-  "volume": 0.8,
-  "wave_type": "sine",
-  "input_key": "Space"
-}
-```
+## Documentação
 
-Validações no servidor: `speed_wpm` ∈ {5, 10, 15, 20, 30, 40, 60}; `frequency` entre 200 e 2000 Hz; `volume` entre 0.0 e 1.0; `wave_type` ∈ {sine, square, triangle, sawtooth}; `input_key` restrito à tabela `AllowedKey` (dado configurável — teclas são adicionadas/desativadas pelo Django admin, sem deploy; seed inicial: Space, Enter, KeyA, KeyS, KeyD).
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — arquitetura, endpoints e contratos da API, segurança, qualidade e CI/CD.
+- **`/api/docs`** — Swagger UI gerado do código (drf-spectacular), sempre em dia com a API real.
 
-As configurações padrão são criadas automaticamente no cadastro do usuário.
+## Frontend
 
-### Lições e caracteres Morse (Fase 3)
+A interface é o [learn-morse-code-frontend](https://github.com/Gustavo0121/learn-morse-code-frontend) (Angular). O CI valida lint, testes, auditoria de segurança e build Docker a cada push; push na `main` publica a imagem no GHCR e dispara o deploy no Render.
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/api/lessons` | Lições ordenadas pela posição na trilha (`order`) |
-| `GET` | `/api/lessons/{id}` | Detalhe de uma lição |
-| `GET` | `/api/morse-characters` | Alfabeto Morse completo (ITU): 26 letras, 10 números, 18 pontuações |
+## Bugs e sugestões
 
-Conteúdo somente leitura para o aluno — a escrita é restrita ao Django admin. A base é populada por data migrations: 4 lições iniciais (Nível 1 — letras básicas, 2 — números, 3 — palavras, 4 — frases) e os 54 caracteres do padrão ITU-R M.1677-1.
+Encontrou um bug ou tem uma ideia? Abra uma [issue](https://github.com/Gustavo0121/learn-morse-code-backend/issues) — o [`CONTRIBUTING.md`](CONTRIBUTING.md) descreve o que incluir no reporte.
 
-### Prática (Fase 4)
+## Quer contribuir?
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/api/practice/history` | Registra uma tentativa de exercício |
-| `GET` | `/api/practice/history` | Histórico do usuário autenticado (mais recente primeiro) |
+Contribuições são bem-vindas! Leia o [`CONTRIBUTING.md`](CONTRIBUTING.md) para preparar o ambiente, entender o fluxo de branches e o que esperamos do código.
 
-Corpo do `POST` (exercício de captura por tecla):
+## Código de conduta
 
-```json
-{
-  "exercise_type": "key_capture",
-  "input_method": "Space",
-  "question": "!",
-  "expected_answer": "-.-.--",
-  "press_durations": [200, 50, 200, 50, 200, 200],
-  "response_time": 850
-}
-```
+Ao participar do projeto, você concorda com o nosso [Código de Conduta](CODE_OF_CONDUCT.md).
 
-Como o registro funciona:
+## Segurança
 
-- `exercise_type` ∈ {`key_capture`, `multiple_choice`, `listening`}; `input_method` é obrigatório apenas em `key_capture` (validado contra a tabela `AllowedKey`) e proibido nos demais.
-- Para `key_capture`, o cliente pode enviar `press_durations` (duração de cada pressionamento, em ms): o backend refaz a classificação ponto/traço e deriva `user_answer` no servidor. Cada duração é validada contra um limite dinâmico calculado do `speed_wpm` do usuário (fórmula PARIS: ponto = 1200/WPM ms) — payloads como `999999999` são rejeitados. Sem `press_durations`, `user_answer` é obrigatório no corpo.
-- `correct` é sempre calculado no backend comparando `expected_answer` com `user_answer` — nunca aceito do cliente.
-- `response_time` (ms) deve estar entre 1 e 300000.
+Vulnerabilidades não devem ser reportadas em issues públicas — veja o processo de divulgação responsável em [`SECURITY.md`](SECURITY.md).
 
-### Estatísticas (Fase 5)
+## Licença
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/api/users/statistics` | Desempenho agregado do usuário autenticado |
-
-Resposta:
-
-```json
-{
-  "characters_seen": 4,
-  "characters_correct": 3,
-  "accuracy": 0.75,
-  "average_speed": 60.0,
-  "training_time": 4000,
-  "updated_at": "2026-07-11T18:00:00Z"
-}
-```
-
-- O agregado é recalculado automaticamente a cada tentativa registrada em `/api/practice/history` (signal → `statistics/services.py`); síncrono no MVP, candidato a Redis/Celery no futuro.
-- `accuracy` é a fração de acertos (0.0–1.0); `training_time` é a soma dos tempos de resposta em ms; `average_speed` é caracteres por minuto derivada do tempo total de resposta.
-- Somente leitura: qualquer escrita do cliente (`POST`/`PUT`/`PATCH`) responde 405. Usuários sem histórico recebem o agregado zerado.
-
-## Segurança (Fase 6)
-
-- **Rate limiting global**: 60 req/min por IP para anônimos e 120 req/min por usuário autenticado, além dos 10 req/min por IP nas rotas de autenticação.
-- **CORS**: origens explícitas via `CORS_ALLOWED_ORIGINS` (nunca `*`), com credenciais habilitadas para o cookie de refresh e o header `X-CSRF-Protection` liberado no preflight.
-- **Headers**: `Content-Security-Policy` restritiva em todas as respostas, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
-- **Produção (`DEBUG=False`)**: redirect HTTPS obrigatório, HSTS de 1 ano com subdomínios, cookies `Secure`, API somente JSON (Browsable API desligada). Atrás de proxy TLS, ligar `USE_X_FORWARDED_PROTO`.
-- **Dependências**: `pip-audit` roda no CI (job `security`) contra o lockfile completo; o lint inclui as regras de segurança do bandit (`S`) via ruff.
-
-Auditoria manual de dependências:
-
-```sh
-uv export --no-emit-project --format requirements-txt -o requirements-audit.txt
-uv run pip-audit --disable-pip -r requirements-audit.txt
-```
-
-## Qualidade e testes
-
-```sh
-uv run ruff check .          # lint (inclui regras de segurança do bandit)
-uv run ruff format .         # formatação
-uv run mypy .                # type checking
-uv run pytest                # testes
-uv run pytest --cov         # testes com cobertura (meta: ≥ 80%)
-```
-
-## CI/CD e deploy
-
-Pipeline (GitHub Actions), a cada push/PR:
-
-```
-Lint → Testes (cobertura ≥ 80%) → Security Scan (pip-audit) → Docker Build → Deploy
-```
-
-- **Docker Build**: valida o build em PRs; em push nas branches principais também publica a imagem em `ghcr.io/gustavo0121/learn-morse-code-backend` (tags: SHA, branch e `latest` na branch default).
-- **Deploy**: em push na `main`, dispara o deploy hook do Render (secret `RENDER_DEPLOY_HOOK_URL`; sem o secret o job apenas avisa — o auto-deploy do Render assume). Para condicionar o deploy ao CI verde, desligue o auto-deploy no painel do Render e cadastre o secret.
-- **Migrations** rodam automaticamente no start do container (`migrate --noinput` antes do Gunicorn), incluindo os seeds de lições/caracteres.
-- **Rollback**: guia completo em `DEPLOY.md` (seção 5) — rollback de build pelo dashboard do Render, migração reversa via CMD temporário e point-in-time restore do Neon.
-
-Guia completo de deploy (Render + Neon + Upstash, custo zero): **`DEPLOY.md`**.
-
-## Estrutura
-
-```
-config/          # settings, urls, wsgi/asgi
-apps/
-├── accounts/    # usuários e autenticação (Fase 1 ✅)
-├── morse/       # configurações de Morse e caracteres (Fases 2–3 ✅)
-├── lessons/     # lições (Fase 3 ✅)
-├── practice/    # registro de treino (Fase 4 ✅)
-└── statistics/  # estatísticas agregadas (Fase 5 ✅)
-```
-
-Requisitos e plano de desenvolvimento: ver `CLAUDE.md`.
+Distribuído sob a licença [Apache 2.0](LICENSE).
