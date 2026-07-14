@@ -173,6 +173,24 @@ def test_rejects_input_method_not_in_allowed_list(api: APIClient, input_method: 
     assert "input_method" in response.json()
 
 
+def test_accepts_touch_input_method_outside_allowed_keys(api: APIClient, user: User) -> None:
+    """Captura por toque (mobile) usa o literal "Touch", que não é tecla."""
+    response = post_history(api, input_method="Touch", press_durations=[100, 100], user_answer=None)
+
+    assert response.status_code == 201
+    record = PracticeHistory.objects.get(user=user)
+    assert record.input_method == "Touch"
+    assert record.user_answer == ".."
+
+
+@pytest.mark.parametrize("input_method", ["touch", "TOUCH"])
+def test_touch_input_method_is_case_sensitive(api: APIClient, input_method: str) -> None:
+    response = post_history(api, input_method=input_method)
+
+    assert response.status_code == 400
+    assert "input_method" in response.json()
+
+
 def test_key_capture_requires_input_method(api: APIClient) -> None:
     response = post_history(api, input_method=None)
 

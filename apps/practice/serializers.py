@@ -7,7 +7,7 @@ from rest_framework import serializers
 from apps.morse.models import AllowedKey
 from apps.morse.services import ensure_default_settings
 
-from .models import PracticeHistory
+from .models import TOUCH_INPUT_METHOD, PracticeHistory
 from .services import allowed_press_limit_ms, code_from_press_durations
 
 # Limite de sanidade para o tempo total de resposta (ms) — bloqueia payloads
@@ -80,7 +80,11 @@ class PracticeHistorySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"input_method": "Obrigatório para exercícios key_capture."}
             )
-        if not AllowedKey.objects.filter(code=input_method, is_active=True).exists():
+        # "Touch" identifica captura por toque na tela (mobile) — não é uma
+        # tecla, então é aceito fora da whitelist AllowedKey.
+        if input_method != TOUCH_INPUT_METHOD and not (
+            AllowedKey.objects.filter(code=input_method, is_active=True).exists()
+        ):
             raise serializers.ValidationError(
                 {"input_method": "Tecla não permitida. Consulte a lista de teclas válidas."}
             )
