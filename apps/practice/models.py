@@ -3,6 +3,12 @@
 from django.conf import settings
 from django.db import models
 
+# Valor especial de ``input_method`` para captura por toque na tela (mobile).
+# Não é uma tecla, então não entra na tabela ``AllowedKey`` (que alimenta o
+# seletor de teclas do Settings); o serializer o aceita explicitamente.
+# Espelhado pelo frontend em ``services/practice.service.ts``.
+TOUCH_INPUT_METHOD = "Touch"
+
 
 class PracticeHistory(models.Model):
     """Registro consolidado de uma tentativa de exercício.

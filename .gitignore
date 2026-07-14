@@ -217,4 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-CLAUDE.md
+# Project docs kept out of version control
+REQUISITOS.md
+DEPLOY.md
