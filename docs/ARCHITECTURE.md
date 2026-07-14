@@ -106,6 +106,7 @@ Corpo do `POST` (exercício de captura por tecla):
 Como o registro funciona:
 
 - `exercise_type` ∈ {`key_capture`, `multiple_choice`, `listening`}; `input_method` é obrigatório apenas em `key_capture` (validado contra a tabela `AllowedKey`) e proibido nos demais.
+- **Captura por toque (mobile)**: `input_method` também aceita o literal `"Touch"` (constante `TOUCH_INPUT_METHOD` em `apps/practice/models.py`) — não é uma tecla, então fica fora da tabela `AllowedKey` para não aparecer no seletor de teclas do Settings.
 - Para `key_capture`, o cliente pode enviar `press_durations` (duração de cada pressionamento, em ms): o backend refaz a classificação ponto/traço e deriva `user_answer` no servidor. Cada duração é validada contra um limite dinâmico calculado do `speed_wpm` do usuário (fórmula PARIS: ponto = 1200/WPM ms) — payloads como `999999999` são rejeitados. Sem `press_durations`, `user_answer` é obrigatório no corpo.
 - `correct` é sempre calculado no backend comparando `expected_answer` com `user_answer` — nunca aceito do cliente.
 - `response_time` (ms) deve estar entre 1 e 300000.
