@@ -46,7 +46,7 @@ apps/
 
 - Nomes de campo exatos: `speed_wpm` (nunca `speed`); `correct` é sempre calculado no servidor e nunca aceito do cliente.
 - `key_capture` pode receber `press_durations` (ms): o servidor reclassifica ponto/traço e deriva `user_answer`. A fórmula (PARIS: ponto = `1200/speed_wpm` ms) vive em `apps/practice/services.py` e é espelhada pelo frontend em `services/morse-timing.ts` — qualquer mudança precisa ser coordenada nos dois repositórios.
-- `input_key`/`input_method` são validados contra a tabela `AllowedKey` (whitelist gerenciada pelo admin, exposta em `GET /api/morse-settings/allowed-keys`).
+- `input_key`/`input_method` são validados contra a tabela `AllowedKey` (whitelist gerenciada pelo admin, exposta em `GET /api/morse-settings/allowed-keys`). Exceção: `input_method` aceita o literal `"Touch"` (captura por toque no mobile — `TOUCH_INPUT_METHOD` em `apps/practice/models.py`), que propositalmente não entra na `AllowedKey`.
 - **Tokens**: access token (15 min) só no corpo da resposta; refresh token (7 dias) só no cookie `refresh_token` (`HttpOnly`, `SameSite=Strict`, `Path=/api/auth`), rotacionado com blacklist. `refresh`/`logout` exigem o header `X-CSRF-Protection: 1` (403 sem ele). Não mudar nomes de cookie/header sem coordenar com o frontend.
 - Rate limits atuais: 10/min por IP nas rotas de auth; 60/min anônimo; 120/min autenticado (contadores no Redis).
 
