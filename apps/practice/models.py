@@ -3,6 +3,8 @@
 from django.conf import settings
 from django.db import models
 
+from apps.morse.models import UserMorseSettings
+
 # Valor especial de ``input_method`` para captura por toque na tela (mobile).
 # Não é uma tecla, então não entra na tabela ``AllowedKey`` (que alimenta o
 # seletor de teclas do Settings); o serializer o aceita explicitamente.
@@ -38,6 +40,10 @@ class PracticeHistory(models.Model):
     user_answer = models.CharField(max_length=255)
     correct = models.BooleanField()
     response_time = models.PositiveIntegerField()  # milissegundos
+    # Velocidade configurada pelo usuário no momento da tentativa (gravada
+    # pelo serializer a partir de UserMorseSettings.speed_wpm — nunca aceita
+    # do cliente). Usada para segmentar o leaderboard por velocidade.
+    speed_wpm = models.PositiveSmallIntegerField(choices=UserMorseSettings.SpeedWpm.choices)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -47,6 +53,12 @@ class PracticeHistory(models.Model):
             # Consultas de histórico e agregação de estatísticas (Fase 5)
             # filtram por usuário e período.
             models.Index(fields=["user", "created_at"], name="practice_user_created_idx"),
+            # Agregação cross-user do leaderboard (Fase 11) filtra por
+            # velocidade + modo + período, nunca por usuário.
+            models.Index(
+                fields=["speed_wpm", "exercise_type", "created_at"],
+                name="practice_leaderboard_idx",
+            ),
         ]
 
     def __str__(self) -> str:

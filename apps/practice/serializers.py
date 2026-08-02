@@ -44,9 +44,10 @@ class PracticeHistorySerializer(serializers.ModelSerializer):
             "press_durations",
             "correct",
             "response_time",
+            "speed_wpm",
             "created_at",
         )
-        read_only_fields = ("id", "correct", "created_at")
+        read_only_fields = ("id", "correct", "speed_wpm", "created_at")
         extra_kwargs = {
             # Derivado de press_durations quando o exercício é key_capture.
             "user_answer": {"required": False},
@@ -60,9 +61,12 @@ class PracticeHistorySerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        speed_wpm = ensure_default_settings(self.context["request"].user).speed_wpm
+        attrs["speed_wpm"] = speed_wpm
+
         exercise_type = attrs["exercise_type"]
         if exercise_type == PracticeHistory.ExerciseType.KEY_CAPTURE:
-            self._validate_key_capture(attrs)
+            self._validate_key_capture(attrs, speed_wpm)
         else:
             self._validate_other_exercise(attrs)
 
@@ -74,7 +78,7 @@ class PracticeHistorySerializer(serializers.ModelSerializer):
         attrs["correct"] = attrs["user_answer"] == attrs["expected_answer"]
         return attrs
 
-    def _validate_key_capture(self, attrs: dict[str, Any]) -> None:
+    def _validate_key_capture(self, attrs: dict[str, Any], speed_wpm: int) -> None:
         input_method = attrs.get("input_method")
         if not input_method:
             raise serializers.ValidationError(
@@ -93,7 +97,6 @@ class PracticeHistorySerializer(serializers.ModelSerializer):
         if durations is None:
             return
 
-        speed_wpm = ensure_default_settings(self.context["request"].user).speed_wpm
         limit_ms = allowed_press_limit_ms(speed_wpm)
         if any(not 0 < duration < limit_ms for duration in durations):
             raise serializers.ValidationError(

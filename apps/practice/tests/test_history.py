@@ -71,6 +71,25 @@ def test_post_records_attempt_and_computes_correct_false(api: APIClient, user: U
     assert record.response_time == 850
 
 
+def test_post_records_speed_wpm_from_current_settings(api: APIClient, user: User) -> None:
+    set_speed(user, 25)
+
+    response = post_history(api)
+
+    assert response.status_code == 201
+    assert response.json()["speed_wpm"] == 25
+    assert PracticeHistory.objects.get(user=user).speed_wpm == 25
+
+
+def test_speed_wpm_from_client_is_ignored(api: APIClient, user: User) -> None:
+    set_speed(user, 25)
+
+    response = post_history(api, speed_wpm=5)
+
+    assert response.status_code == 201
+    assert PracticeHistory.objects.get(user=user).speed_wpm == 25
+
+
 def test_post_computes_correct_true_when_answers_match(api: APIClient, user: User) -> None:
     response = post_history(api, user_answer="-.-.--")
 
@@ -249,6 +268,7 @@ def test_get_returns_only_own_history_most_recent_first(api: APIClient, user: Us
         user_answer="sos",
         correct=True,
         response_time=100,
+        speed_wpm=20,
     )
     post_history(api)
     post_history(api, user_answer="-.-.--")

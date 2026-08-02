@@ -18,7 +18,8 @@ apps/
 ├── morse/       # configurações de Morse, teclas permitidas e caracteres
 ├── lessons/     # lições
 ├── practice/    # registro de treino
-└── statistics/  # estatísticas agregadas
+├── statistics/  # estatísticas agregadas
+└── leaderboard/ # ranking cross-user por velocidade/modo/período
 ```
 
 ## Autenticação e tokens
@@ -110,6 +111,7 @@ Como o registro funciona:
 - Para `key_capture`, o cliente pode enviar `press_durations` (duração de cada pressionamento, em ms): o backend refaz a classificação ponto/traço e deriva `user_answer` no servidor. Cada duração é validada contra um limite dinâmico calculado do `speed_wpm` do usuário (fórmula PARIS: ponto = 1200/WPM ms) — payloads como `999999999` são rejeitados. Sem `press_durations`, `user_answer` é obrigatório no corpo.
 - `correct` é sempre calculado no backend comparando `expected_answer` com `user_answer` — nunca aceito do cliente.
 - `response_time` (ms) deve estar entre 1 e 300000.
+- `speed_wpm` é gravado pelo servidor a partir do `UserMorseSettings.speed_wpm` vigente do usuário no momento da tentativa (nunca aceito do cliente) — alimenta a segmentação do leaderboard por velocidade.
 
 A fórmula de classificação vive em `apps/practice/services.py` e é espelhada pelo frontend (`services/morse-timing.ts`) — mudanças precisam ser coordenadas nos dois repositórios.
 
@@ -131,6 +133,31 @@ Resposta:
   "updated_at": "2026-07-11T18:00:00Z"
 }
 ```
+
+- O agregado é recalculado automaticamente a cada tentativa registrada em `/api/practice/history` (signal → `statistics/services.py`); síncrono no MVP, candidato a Redis/Celery no futuro.
+
+## Leaderboard
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/leaderboard?speed_wpm=<n>&exercise_type=<tipo>&period=<janela>` | Ranking cross-user no filtro selecionado |
+
+Query params:
+
+- `speed_wpm` ∈ {5, 10, 15, 20, 25} (obrigatório, mesmo enum de `UserMorseSettings.SpeedWpm`).
+- `exercise_type` ∈ {`key_capture`, `multiple_choice`, `listening`} (obrigatório).
+- `period` ∈ {`general`, `weekly`, `monthly`} (opcional, default `general`). `weekly`/`monthly` são janelas móveis de 7/30 dias corridos em UTC a partir de `created_at` — não mês/semana civil.
+
+Resposta (array ordenado por `score` desc, no máximo 50 posições):
+
+```json
+[
+  { "position": 1, "username": "gu", "accuracy": 0.92, "cpm": 45.3, "score": 137.3 }
+]
+```
+
+- `score = accuracy * 100 + cpm` — pontuação composta simples (acurácia 0–100 pontos somada ao CPM bruto), calculada em `apps/leaderboard/services.py` a partir de uma agregação de `PracticeHistory` por usuário (mesmo padrão de `apps/statistics/services.py::recalculate_statistics`, mas cross-user e sob demanda — sem model próprio).
+- Segmentado pelo `speed_wpm` **gravado na tentativa** (`PracticeHistory.speed_wpm`), não pela preferência atual do usuário — um usuário que mudou de velocidade continua aparecendo no ranking da velocidade em que treinou. Histórico anterior à migração `apps.practice.0002` não tinha esse campo; foi populado por backfill (`apps.practice.0003`) com o `speed_wpm` das preferências de cada usuário **na data da migração** — aproximação para tentativas antigas, não a velocidade real usada na época.
 
 - O agregado é recalculado automaticamente a cada tentativa registrada em `/api/practice/history` (signal → `statistics/services.py`); síncrono no MVP, candidato a Redis/Celery no futuro.
 - `accuracy` é a fração de acertos (0.0–1.0); `training_time` é a soma dos tempos de resposta em ms; `average_speed` é caracteres por minuto derivada do tempo total de resposta.
