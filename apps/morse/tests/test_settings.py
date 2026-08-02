@@ -89,20 +89,20 @@ def test_get_settings_creates_record_for_legacy_user(api: APIClient, user: User)
 
 def test_put_settings_updates_and_persists(api: APIClient, user: User) -> None:
     response = put_settings(
-        api, speed_wpm=30, frequency=1000, volume=0.5, wave_type="square", input_key="Enter"
+        api, speed_wpm=25, frequency=1000, volume=0.5, wave_type="square", input_key="Enter"
     )
 
     assert response.status_code == 200
 
     settings = UserMorseSettings.objects.get(user=user)
-    assert settings.speed_wpm == 30
+    assert settings.speed_wpm == 25
     assert settings.frequency == 1000
     assert settings.volume == 0.5
     assert settings.wave_type == "square"
     assert settings.input_key == "Enter"
 
 
-@pytest.mark.parametrize("speed_wpm", [-10, 0, 7, 25, 999999])
+@pytest.mark.parametrize("speed_wpm", [-10, 0, 7, 30, 999999])
 def test_put_rejects_speed_outside_enum(api: APIClient, speed_wpm: int) -> None:
     response = put_settings(api, speed_wpm=speed_wpm)
 

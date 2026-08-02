@@ -67,9 +67,7 @@ class UserMorseSettings(models.Model):
         WPM_10 = 10
         WPM_15 = 15
         WPM_20 = 20
-        WPM_30 = 30
-        WPM_40 = 40
-        WPM_60 = 60
+        WPM_25 = 25
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
