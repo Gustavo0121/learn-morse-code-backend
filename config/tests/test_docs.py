@@ -18,6 +18,7 @@ def test_schema_is_public_and_lists_all_endpoints(client: Client) -> None:
         "/api/morse-characters",
         "/api/practice/history",
         "/api/users/statistics",
+        "/api/leaderboard",
     ):
         assert endpoint in schema
 

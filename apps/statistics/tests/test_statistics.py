@@ -26,7 +26,9 @@ def api(user: User) -> APIClient:
     return client
 
 
-def record_attempt(user: User, *, correct: bool, response_time: int) -> PracticeHistory:
+def record_attempt(
+    user: User, *, correct: bool, response_time: int, speed_wpm: int = 20
+) -> PracticeHistory:
     return PracticeHistory.objects.create(
         user=user,
         exercise_type="key_capture",
@@ -36,6 +38,7 @@ def record_attempt(user: User, *, correct: bool, response_time: int) -> Practice
         user_answer="-.-.--" if correct else ".-.",
         correct=correct,
         response_time=response_time,
+        speed_wpm=speed_wpm,
     )
 
 
