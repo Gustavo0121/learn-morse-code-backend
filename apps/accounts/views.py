@@ -17,7 +17,7 @@ from typing import Any, cast
 
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, status
+from rest_framework import generics, serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import BaseThrottle, ScopedRateThrottle
@@ -29,7 +29,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .cookies import clear_refresh_cookie, set_refresh_cookie
 from .models import User
 from .permissions import RequireCSRFHeader
-from .serializers import ProfileSerializer, RegisterSerializer
+from .serializers import (
+    ChangePasswordSerializer,
+    DeleteAccountSerializer,
+    ProfileSerializer,
+    RegisterSerializer,
+)
+from .tokens import blacklist_outstanding_tokens
 
 
 class AuthThrottleMixin:
@@ -107,11 +113,56 @@ class LogoutView(AuthThrottleMixin, APIView):
         return response
 
 
-class ProfileView(generics.RetrieveUpdateAPIView):
-    """GET/PUT/PATCH /api/users/profile — sempre do usuário autenticado."""
+class ProfileView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PUT/PATCH/DELETE /api/users/profile — sempre do usuário autenticado.
 
-    serializer_class = ProfileSerializer
+    O DELETE exige a senha atual no corpo (``DeleteAccountSerializer``) e não
+    depende do cookie de refresh — autentica pelo access token, como as
+    demais operações desta view — por isso não exige o header CSRF usado em
+    ``refresh``/``logout``.
+    """
+
+    def get_serializer_class(self) -> type[serializers.BaseSerializer]:
+        if self.request.method == "DELETE":
+            return DeleteAccountSerializer
+        return ProfileSerializer
+
+    def get_throttles(self) -> list[BaseThrottle]:
+        # DELETE testa a senha atual (alvo de brute force) — mesmo scope
+        # restritivo das rotas de autenticação. GET/PUT/PATCH usam o
+        # throttle padrão (UserRateThrottle, 120/min).
+        if self.request.method == "DELETE":
+            self.throttle_scope = "auth"
+            return [ScopedRateThrottle()]
+        return super().get_throttles()
 
     def get_object(self) -> User:
         # IsAuthenticated (permissão default) garante que não é AnonymousUser.
         return cast(User, self.request.user)
+
+    def perform_destroy(self, instance: User) -> None:
+        # Antes do delete: o FK de OutstandingToken.user vira nulo depois.
+        blacklist_outstanding_tokens(instance)
+        instance.delete()
+
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        confirmation = self.get_serializer(data=request.data)
+        confirmation.is_valid(raise_exception=True)
+
+        response = super().destroy(request, *args, **kwargs)
+        clear_refresh_cookie(response)
+        return response
+
+
+class ChangePasswordView(AuthThrottleMixin, generics.GenericAPIView):
+    """POST /api/users/change-password — invalida os refresh tokens existentes."""
+
+    serializer_class = ChangePasswordSerializer
+
+    @extend_schema(responses={204: None})
+    def post(self, request: Request) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        blacklist_outstanding_tokens(cast(User, request.user))
+        return Response(status=status.HTTP_204_NO_CONTENT)
