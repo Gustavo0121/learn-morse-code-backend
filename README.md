@@ -27,6 +27,7 @@ API REST em Django + Django REST Framework que fornece autenticação, conteúdo
 ## Funcionalidades
 
 - **Autenticação JWT segura**: access token de vida curta no corpo; refresh token rotacionado em cookie `httpOnly`/`SameSite=Strict`, com blacklist e proteção CSRF.
+- **Gestão de conta**: troca de senha e exclusão de conta (com confirmação por senha atual), invalidando os refresh tokens existentes.
 - **Configurações de treino por usuário**: velocidade (WPM), frequência, volume, tipo de onda e tecla de captura — validadas no servidor, com whitelist de teclas gerenciável pelo admin.
 - **Conteúdo educacional**: trilha de lições e o alfabeto Morse completo (padrão ITU-R M.1677-1), populados por data migrations.
 - **Registro de prática**: valida e classifica os pressionamentos de tecla no servidor (fórmula PARIS derivada do WPM do usuário) e calcula acertos — o cliente nunca decide o que está `correct`.

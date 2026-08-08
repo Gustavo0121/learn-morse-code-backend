@@ -30,14 +30,17 @@ apps/
 | `POST` | `/api/auth/login` | Retorna o access token no corpo e grava o refresh token em cookie |
 | `POST` | `/api/auth/refresh` | Renova o access token a partir do cookie de refresh |
 | `POST` | `/api/auth/logout` | Blacklista o refresh token e expira o cookie |
-| `GET/PUT` | `/api/users/profile` | Perfil do usuário autenticado (requer `Authorization: Bearer <access>`) |
+| `GET/PUT/PATCH` | `/api/users/profile` | Perfil do usuário autenticado (requer `Authorization: Bearer <access>`) |
+| `DELETE` | `/api/users/profile` | Exclui a conta — corpo `{"current_password"}`; apaga o usuário e dados associados (cascade) e limpa o cookie de refresh |
+| `POST` | `/api/users/change-password` | Troca de senha — corpo `{"current_password", "new_password"}`; invalida os refresh tokens existentes |
 
 Como o fluxo de tokens funciona:
 
 - O **access token** (validade de 15 min) é retornado apenas no corpo do login/refresh; o frontend o mantém em memória e o envia via header `Authorization: Bearer`.
 - O **refresh token** (validade de 7 dias) nunca aparece no corpo: é entregue no cookie `refresh_token` (`HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Secure` fora de DEBUG) e é rotacionado a cada refresh, com blacklist do token anterior.
-- **Proteção CSRF**: `refresh` e `logout` dependem do cookie e por isso exigem o header customizado `X-CSRF-Protection: 1`; sem ele a resposta é 403.
-- **Rate limiting**: as rotas de autenticação são limitadas a 10 requisições/min por IP (contadores no Redis).
+- **Proteção CSRF**: `refresh` e `logout` dependem do cookie (sem `Authorization: Bearer`) e por isso exigem o header customizado `X-CSRF-Protection: 1`; sem ele a resposta é 403. `change-password` e o `DELETE` de `users/profile` autenticam por access token como o resto do perfil, então não exigem o header.
+- **Rate limiting**: as rotas de autenticação (`register`/`login`/`refresh`/`logout`) e as que exigem senha atual (`change-password`, `DELETE users/profile`) são limitadas a 10 requisições/min (contadores no Redis) — por IP nas primeiras, por usuário nas últimas duas.
+- **Exclusão de conta**: `UserMorseSettings`, `PracticeHistory` e `UserStatistics` têm FK `on_delete=CASCADE` para o usuário — apagar o `User` remove tudo junto. Os refresh tokens outstanding do usuário são blacklistados antes do delete (o FK de `OutstandingToken.user` vira nulo depois).
 
 Exemplo:
 
