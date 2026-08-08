@@ -37,3 +37,34 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username", "email", "created_at", "updated_at")
         read_only_fields = ("id", "created_at", "updated_at")
+
+
+class CurrentPasswordSerializer(serializers.Serializer):
+    """Base comum: confirma a identidade exigindo a senha atual."""
+
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_current_password(self, value: str) -> str:
+        user: User = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Senha atual incorreta.")
+        return value
+
+
+class ChangePasswordSerializer(CurrentPasswordSerializer):
+    """Troca de senha — aplica os validators padrão e invalida sessões antigas."""
+
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_new_password(self, value: str) -> str:
+        validate_password(value, user=self.context["request"].user)
+        return value
+
+    def save(self, **kwargs: Any) -> None:
+        user: User = self.context["request"].user
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+
+
+class DeleteAccountSerializer(CurrentPasswordSerializer):
+    """Confirmação de exclusão de conta — exige a senha atual."""
