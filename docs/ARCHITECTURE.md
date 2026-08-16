@@ -18,7 +18,8 @@ apps/
 ├── morse/       # configurações de Morse, teclas permitidas e caracteres
 ├── lessons/     # lições
 ├── practice/    # registro de treino
-└── statistics/  # estatísticas agregadas
+├── statistics/  # estatísticas agregadas
+└── leaderboard/ # ranking cross-user por velocidade/modo/período
 ```
 
 ## Autenticação e tokens
@@ -29,14 +30,17 @@ apps/
 | `POST` | `/api/auth/login` | Retorna o access token no corpo e grava o refresh token em cookie |
 | `POST` | `/api/auth/refresh` | Renova o access token a partir do cookie de refresh |
 | `POST` | `/api/auth/logout` | Blacklista o refresh token e expira o cookie |
-| `GET/PUT` | `/api/users/profile` | Perfil do usuário autenticado (requer `Authorization: Bearer <access>`) |
+| `GET/PUT/PATCH` | `/api/users/profile` | Perfil do usuário autenticado (requer `Authorization: Bearer <access>`) |
+| `DELETE` | `/api/users/profile` | Exclui a conta — corpo `{"current_password"}`; apaga o usuário e dados associados (cascade) e limpa o cookie de refresh |
+| `POST` | `/api/users/change-password` | Troca de senha — corpo `{"current_password", "new_password"}`; invalida os refresh tokens existentes |
 
 Como o fluxo de tokens funciona:
 
 - O **access token** (validade de 15 min) é retornado apenas no corpo do login/refresh; o frontend o mantém em memória e o envia via header `Authorization: Bearer`.
 - O **refresh token** (validade de 7 dias) nunca aparece no corpo: é entregue no cookie `refresh_token` (`HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Secure` fora de DEBUG) e é rotacionado a cada refresh, com blacklist do token anterior.
-- **Proteção CSRF**: `refresh` e `logout` dependem do cookie e por isso exigem o header customizado `X-CSRF-Protection: 1`; sem ele a resposta é 403.
-- **Rate limiting**: as rotas de autenticação são limitadas a 10 requisições/min por IP (contadores no Redis).
+- **Proteção CSRF**: `refresh` e `logout` dependem do cookie (sem `Authorization: Bearer`) e por isso exigem o header customizado `X-CSRF-Protection: 1`; sem ele a resposta é 403. `change-password` e o `DELETE` de `users/profile` autenticam por access token como o resto do perfil, então não exigem o header.
+- **Rate limiting**: as rotas de autenticação (`register`/`login`/`refresh`/`logout`) e as que exigem senha atual (`change-password`, `DELETE users/profile`) são limitadas a 10 requisições/min (contadores no Redis) — por IP nas primeiras, por usuário nas últimas duas.
+- **Exclusão de conta**: `UserMorseSettings`, `PracticeHistory` e `UserStatistics` têm FK `on_delete=CASCADE` para o usuário — apagar o `User` remove tudo junto. Os refresh tokens outstanding do usuário são blacklistados antes do delete (o FK de `OutstandingToken.user` vira nulo depois).
 
 Exemplo:
 
@@ -69,7 +73,7 @@ Corpo/resposta:
 }
 ```
 
-Validações no servidor: `speed_wpm` ∈ {5, 10, 15, 20, 30, 40, 60}; `frequency` entre 200 e 2000 Hz; `volume` entre 0.0 e 1.0; `wave_type` ∈ {sine, square, triangle, sawtooth}; `input_key` restrito à tabela `AllowedKey` (dado configurável — teclas são adicionadas/desativadas pelo Django admin, sem deploy; seed inicial: Space, Enter, KeyA, KeyS, KeyD).
+Validações no servidor: `speed_wpm` ∈ {5, 10, 15, 20, 25}; `frequency` entre 200 e 2000 Hz; `volume` entre 0.0 e 1.0; `wave_type` ∈ {sine, square, triangle, sawtooth}; `input_key` restrito à tabela `AllowedKey` (dado configurável — teclas são adicionadas/desativadas pelo Django admin, sem deploy; seed inicial: Space, Enter, KeyA, KeyS, KeyD).
 
 As configurações padrão são criadas automaticamente no cadastro do usuário.
 
@@ -110,6 +114,7 @@ Como o registro funciona:
 - Para `key_capture`, o cliente pode enviar `press_durations` (duração de cada pressionamento, em ms): o backend refaz a classificação ponto/traço e deriva `user_answer` no servidor. Cada duração é validada contra um limite dinâmico calculado do `speed_wpm` do usuário (fórmula PARIS: ponto = 1200/WPM ms) — payloads como `999999999` são rejeitados. Sem `press_durations`, `user_answer` é obrigatório no corpo.
 - `correct` é sempre calculado no backend comparando `expected_answer` com `user_answer` — nunca aceito do cliente.
 - `response_time` (ms) deve estar entre 1 e 300000.
+- `speed_wpm` é gravado pelo servidor a partir do `UserMorseSettings.speed_wpm` vigente do usuário no momento da tentativa (nunca aceito do cliente) — alimenta a segmentação do leaderboard por velocidade.
 
 A fórmula de classificação vive em `apps/practice/services.py` e é espelhada pelo frontend (`services/morse-timing.ts`) — mudanças precisam ser coordenadas nos dois repositórios.
 
@@ -131,6 +136,31 @@ Resposta:
   "updated_at": "2026-07-11T18:00:00Z"
 }
 ```
+
+- O agregado é recalculado automaticamente a cada tentativa registrada em `/api/practice/history` (signal → `statistics/services.py`); síncrono no MVP, candidato a Redis/Celery no futuro.
+
+## Leaderboard
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/leaderboard?speed_wpm=<n>&exercise_type=<tipo>&period=<janela>` | Ranking cross-user no filtro selecionado |
+
+Query params:
+
+- `speed_wpm` ∈ {5, 10, 15, 20, 25} (obrigatório, mesmo enum de `UserMorseSettings.SpeedWpm`).
+- `exercise_type` ∈ {`key_capture`, `multiple_choice`, `listening`} (obrigatório).
+- `period` ∈ {`general`, `weekly`, `monthly`} (opcional, default `general`). `weekly`/`monthly` são janelas móveis de 7/30 dias corridos em UTC a partir de `created_at` — não mês/semana civil.
+
+Resposta (array ordenado por `score` desc, no máximo 50 posições):
+
+```json
+[
+  { "position": 1, "username": "gu", "accuracy": 0.92, "cpm": 45.3, "score": 137.3 }
+]
+```
+
+- `score = accuracy * 100 + cpm` — pontuação composta simples (acurácia 0–100 pontos somada ao CPM bruto), calculada em `apps/leaderboard/services.py` a partir de uma agregação de `PracticeHistory` por usuário (mesmo padrão de `apps/statistics/services.py::recalculate_statistics`, mas cross-user e sob demanda — sem model próprio).
+- Segmentado pelo `speed_wpm` **gravado na tentativa** (`PracticeHistory.speed_wpm`), não pela preferência atual do usuário — um usuário que mudou de velocidade continua aparecendo no ranking da velocidade em que treinou. Histórico anterior à migração `apps.practice.0002` não tinha esse campo; foi populado por backfill (`apps.practice.0003`) com o `speed_wpm` das preferências de cada usuário **na data da migração** — aproximação para tentativas antigas, não a velocidade real usada na época.
 
 - O agregado é recalculado automaticamente a cada tentativa registrada em `/api/practice/history` (signal → `statistics/services.py`); síncrono no MVP, candidato a Redis/Celery no futuro.
 - `accuracy` é a fração de acertos (0.0–1.0); `training_time` é a soma dos tempos de resposta em ms; `average_speed` é caracteres por minuto derivada do tempo total de resposta.
